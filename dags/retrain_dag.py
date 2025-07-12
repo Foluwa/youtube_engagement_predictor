@@ -13,7 +13,7 @@ default_args = {
 
 with DAG('yt_engagement_retrain',
          default_args=default_args,
-         schedule_interval='@weekly',
+         schedule='@weekly',
          catchup=False,
          params={'trigger_retrain': False},
          render_template_as_native_obj=True) as dag:
