@@ -5,3 +5,9 @@ mlruns/
 data/
 models/
 .env
+*.zip
+*.log
+*.csv
+*.json
+*.db
+*.sqlite
