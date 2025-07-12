@@ -11,3 +11,4 @@ models/
 *.json
 *.db
 *.sqlite
+.DS_Store
