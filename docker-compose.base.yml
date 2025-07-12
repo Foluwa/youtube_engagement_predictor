@@ -1,0 +1,39 @@
+version: "3.8"
+
+x-postgres-config: &postgres-config
+  image: postgres:13
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER:-airflow}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airflow}
+    POSTGRES_DB: ${POSTGRES_DB:-airflow}
+
+x-build-context: &build-context
+  context: .
+  dockerfile: Dockerfile
+  args:
+    - BUILDKIT_INLINE_CACHE=1
+
+services:
+  postgres:
+    <<: *postgres-config
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.1.1
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/mlruns
+      --host 0.0.0.0
+    volumes:
+      - mlflow-data:/mlflow
+
+volumes:
+  postgres-db-volume:
+  mlflow-data:

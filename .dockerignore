@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.env*
+*.egg-info/
+
+# Data and logs
+data/
+logs/
+*.log
+mlruns/
+*.db
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*
+
+# Documentation
+README.md
+CHANGELOG.md
+docs/
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+*.tar.gz
+
+# Large files that can be regenerated
+*.pkl
+*.model
+*.h5
+*.csv

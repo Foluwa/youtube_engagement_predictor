@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports: ["8000:80"]  
+    volumes: ["./:/app"]  
+    environment:
+      - DEBUG=true
+    depends_on:
+      - redis
+
+  streamlit:
+    build: 
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports: ["8501:8501"]
+    depends_on: ["backend"]
+    volumes: ["./:/app"] 
+    
+  airflow:
+    image: apache/airflow:latest
+    command: standalone
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__WORKERS=1
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_USER}
+      - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_PASSWORD}
+      - _AIRFLOW_WWW_USER_FIRSTNAME=${AIRFLOW_FIRST_NAME}
+      - _AIRFLOW_WWW_USER_LASTNAME=${AIRFLOW_LAST_NAME}
+      - _AIRFLOW_WWW_USER_EMAIL=${AIRFLOW_USER_EMAIL}
+    depends_on: ["postgres"]
+    ports: ["8080:8080"]
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    deploy:
+      resources:
+        limits:
+          memory: 1G

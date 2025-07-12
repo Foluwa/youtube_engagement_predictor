@@ -5,12 +5,23 @@ WORKDIR /app
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
+# Set up Streamlit config
 RUN mkdir -p /root/.streamlit
 RUN bash -c 'echo -e "[server]\nenableCORS = false\n" > /root/.streamlit/config.toml'
 
-COPY requirements.txt ./requirements.txt
-RUN pip install -r requirements.txt
+# Install Streamlit directly
+RUN pip install --no-cache-dir streamlit
 
+# Install only the required dependencies for the Streamlit app
+# You can either copy a streamlit-specific requirements file
+COPY streamlit-requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Or install specific packages directly
+# RUN pip install --no-cache-dir pandas numpy plotly
+
+# Copy only what's needed for Streamlit
+COPY src/ ./src/
 COPY streamlit_app.py ./streamlit_app.py
 
 EXPOSE 8501
