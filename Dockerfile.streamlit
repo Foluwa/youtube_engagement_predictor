@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+RUN mkdir -p /root/.streamlit
+RUN bash -c 'echo -e "[server]\nenableCORS = false\n" > /root/.streamlit/config.toml'
+
+COPY requirements.txt ./requirements.txt
+RUN pip install -r requirements.txt
+
+COPY streamlit_app.py ./streamlit_app.py
+
+EXPOSE 8501
+
+ENTRYPOINT ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
