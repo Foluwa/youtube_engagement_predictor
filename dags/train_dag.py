@@ -1,7 +1,8 @@
+import os
 from airflow import DAG
 from airflow.decorators import task
 from datetime import datetime, timedelta
-from src.preprocess import preprocess_all_data
+from src.preprocess import preprocess
 from src.train import train_and_log_model
 
 default_args = {
@@ -18,7 +19,7 @@ with DAG('yt_engagement_train',
 
     @task
     def preprocess():
-        return preprocess_all_data('data/raw', 'data/processed.csv')
+        return preprocess('data/raw', 'data/processed.csv')
 
     @task
     def train(processed_path: str):

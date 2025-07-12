@@ -27,7 +27,6 @@ with DAG('yt_engagement_retrain',
     retrain = TriggerDagRunOperator(
         task_id='trigger_train_dag',
         trigger_dag_id='yt_engagement_train',
-        execution_date="{{ ds }}",
         wait_for_completion=True,
     )
 
