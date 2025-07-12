@@ -29,7 +29,7 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__WEBSERVER__WORKERS=1
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
-      - PYTHONPATH=/opt/airflow/dags:/opt/airflow/plugins:/opt/airflow/src
+      # - PYTHONPATH=/opt/airflow/dags:/opt/airflow/plugins:/opt/airflow/src
       - _AIRFLOW_WWW_USER_CREATE=true
       - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_USER}
       - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_PASSWORD}
