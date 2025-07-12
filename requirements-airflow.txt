@@ -1,0 +1,2 @@
+evidently==0.7.10
+lightgbm==4.6.0
