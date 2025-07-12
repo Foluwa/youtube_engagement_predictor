@@ -21,7 +21,9 @@ services:
     volumes: ["./:/app"] 
     
   airflow:
-    image: apache/airflow:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     command: standalone
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor

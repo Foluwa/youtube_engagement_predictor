@@ -1,4 +1,4 @@
-FROM apache/airflow:3.1.0
+FROM apache/airflow:latest
 
 USER root
 RUN apt-get update \
@@ -7,5 +7,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 USER airflow
-COPY requirements-airflow.txt /
-RUN pip install --no-cache-dir -r /requirements-airflow.txt
+COPY requirements-airflow.txt /tmp/requirements-airflow.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt && \
+    python -c "import mlflow; print('MLflow installed successfully:', mlflow.__version__)"

@@ -14,7 +14,7 @@ default_args = {
 
 with DAG('yt_engagement_monitoring',
          default_args=default_args,
-         schedule_interval='@daily',
+         schedule='@daily',
          catchup=False) as dag:
 
     def monitor_wrapper():
