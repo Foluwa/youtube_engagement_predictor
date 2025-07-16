@@ -142,7 +142,7 @@ init:
 		exit 1; \
 	fi
 	@echo "PostgreSQL is ready!"
-	
+
 	@if [ "$(ENV)" = "dev" ]; then \
 		$(DOCKER_COMPOSE) run --rm airflow airflow db migrate && \
 		$(DOCKER_COMPOSE) run --rm airflow airflow users create \

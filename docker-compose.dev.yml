@@ -2,24 +2,24 @@ version: "3.8"
 
 services:
   backend:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
-    ports: ["8000:80"]  
-    volumes: ["./:/app"]  
+    ports: ["8000:80"]
+    volumes: ["./:/app"]
     environment:
       - DEBUG=true
     depends_on:
       - redis
 
   streamlit:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.streamlit
     ports: ["8501:8501"]
     depends_on: ["backend"]
-    volumes: ["./:/app"] 
-    
+    volumes: ["./:/app"]
+
   airflow:
     build:
       context: .

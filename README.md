@@ -132,7 +132,7 @@ make dev
    ```bash
    # Access Airflow container
    make airflow-shell
-   
+
    # Inside container, run data download
    python scripts/download_data.py
    exit
@@ -157,7 +157,7 @@ make dev
    ```bash
    # Check all services are running
    make ps
-   
+
    # View logs
    make logs
    ```
