@@ -25,7 +25,6 @@ class TestDataProcessing:
         )
 
         with patch("glob.glob") as mock_glob, patch("pandas.read_csv") as mock_read_csv:
-
             mock_glob.return_value = ["test1.csv", "test2.csv"]
             mock_read_csv.return_value = sample_data
 

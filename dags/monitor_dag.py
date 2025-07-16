@@ -2,10 +2,10 @@ import os
 from datetime import datetime, timedelta
 
 import joblib
-from airflow import DAG
 from airflow.operators.python import PythonOperator
-
 from src.monitor import load_current_data, load_reference_data, run_monitoring
+
+from airflow import DAG
 
 default_args = {
     "owner": "you",

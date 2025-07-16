@@ -1,11 +1,11 @@
 import os
 from datetime import datetime, timedelta
 
-from airflow import DAG
 from airflow.decorators import task
-
 from src.preprocess import preprocess
 from src.train import train_model
+
+from airflow import DAG
 
 default_args = {
     "owner": "you",

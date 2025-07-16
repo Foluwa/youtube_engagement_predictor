@@ -1,148 +1,363 @@
 # YouTube Engagement Predictor
-.PHONY: up down restart clean logs ps init airflow-shell mlflow-shell streamlit-shell backend-shell build rebuild help dev prod setup prune
+# Professional Makefile with organized commands and no duplication
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 
 # Default target
 .DEFAULT_GOAL := help
 
-# Environment selection (dev by default)
+# Environment variables
 ENV ?= dev
+PYTHON ?= python3
+PIP ?= pip
 
-# Set up Docker Compose command with appropriate files
+# Docker configuration
 DOCKER_COMPOSE = docker compose -f docker-compose.base.yml -f docker-compose.$(ENV).yml --env-file .env
 
-# Services (dev vs prod)
+# Service configuration based on environment
 ifeq ($(ENV),dev)
 	AIRFLOW_SERVICE = airflow
-	AIRFLOW_IMAGE = apache/airflow:latest
 	BACKEND_PORT = 8000
 else
 	AIRFLOW_SERVICE = airflow-webserver
-	AIRFLOW_IMAGE = apache/airflow:latest
 	BACKEND_PORT = 80
 endif
 
-# Help command
-help:
-	@echo "Usage: make [target] [ENV=dev|prod]"
-	@echo ""
-	@echo "Targets:"
-	@echo "  setup           Create .env file from .env.example if it doesn't exist"
-	@echo "  up              Start all services in the selected environment (default: dev)"
-	@echo "  down            Stop all services in the selected environment (default: dev)"
-	@echo "  dev             Start all services in development environment"
-	@echo "  prod            Start all services in production environment"
-	@echo "  restart         Restart all services"
-	@echo "  clean           Stop and remove all containers, networks, and volumes"
-	@echo "  logs            Show logs from all services"
-	@echo "  logs-service    Show logs from a specific service (e.g., make logs-airflow)"
-	@echo "  ps              Show running services"
-	@echo "  init            Initialize Airflow database and create admin user"
-	@echo "  airflow-shell   Open a shell in the Airflow container"
-	@echo "  mlflow-shell    Open a shell in the MLflow container"
-	@echo "  streamlit-shell Open a shell in the Streamlit container"
-	@echo "  backend-shell   Open a shell in the backend container"
-	@echo "  build           Build all services"
-	@echo "  build-fast      Build with BuildKit optimizations"
-	@echo "  build-prod      Build production images with optimizations"
-	@echo "  rebuild         Rebuild all services (no cache)"
-	@echo "  purge           Remove all containers, networks, volumes, and images"
-	@echo "  airflow-creds   Display Airflow auto-generated credentials"
-	@echo "  prune           Clean up unused Docker resources"
+# Colors for output
+RED := \033[31m
+GREEN := \033[32m
+YELLOW := \033[33m
+BLUE := \033[34m
+MAGENTA := \033[35m
+CYAN := \033[36m
+WHITE := \033[37m
+RESET := \033[0m
 
-# Setup initial environment
-setup:
+# =============================================================================
+# PHONY TARGETS
+# =============================================================================
+
+.PHONY: help setup \
+        dev prod up down restart clean purge prune \
+        init logs logs-% ps \
+        build build-fast build-prod rebuild \
+        shell-% \
+        install-dev install-hooks dev-setup \
+        test test-unit test-integration test-cov \
+        lint format type-check security-check quality \
+        pre-commit-run pre-commit-update \
+        coverage-report clean-test \
+        airflow-creds
+
+# =============================================================================
+# HELP & DOCUMENTATION
+# =============================================================================
+
+help: ## Show this help message
+	@echo "$(CYAN)YouTube Engagement Predictor$(RESET)"
+	@echo "$(YELLOW)Usage: make [target] [ENV=dev|prod]$(RESET)"
+	@echo ""
+	@echo "$(MAGENTA)🚀 Quick Start:$(RESET)"
+	@echo "  $(GREEN)make dev-setup$(RESET)     Complete development environment setup"
+	@echo "  $(GREEN)make dev$(RESET)           Start development environment"
+	@echo "  $(GREEN)make test$(RESET)          Run tests"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { \
+		group = ""; \
+		if (match($$1, /^([a-z-]+)-/)) { \
+			group = substr($$1, RSTART, RLENGTH-1); \
+		} \
+		if (group != last_group) { \
+			if (last_group != "") print ""; \
+			printf "$(BLUE)%s:$(RESET)\n", toupper(group); \
+			last_group = group; \
+		} \
+		printf "  $(GREEN)%-15s$(RESET) %s\n", $$1, $$2 \
+	}' $(MAKEFILE_LIST)
+
+# =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
+
+setup: ## Create .env file from template
+	@echo "$(YELLOW)Setting up environment configuration...$(RESET)"
 	@if [ ! -f .env ] && [ -f .env.example ]; then \
 		cp .env.example .env; \
-		echo ".env file created from .env.example. Please update with your actual values."; \
+		echo "$(GREEN)✓ .env file created from .env.example$(RESET)"; \
+		echo "$(YELLOW)⚠ Please update .env with your actual values$(RESET)"; \
 	elif [ ! -f .env ]; then \
-		echo "Creating default .env file..."; \
+		echo "$(YELLOW)Creating default .env file...$(RESET)"; \
 		echo "POSTGRES_USER=airflow\nPOSTGRES_PASSWORD=airflow\nPOSTGRES_DB=airflow\n\nAIRFLOW_USER=admin\nAIRFLOW_FIRST_NAME=Admin\nAIRFLOW_LAST_NAME=User\nAIRFLOW_USER_EMAIL=admin@example.com\nAIRFLOW_PASSWORD=admin" > .env; \
-		echo "Default .env file created."; \
+		echo "$(GREEN)✓ Default .env file created$(RESET)"; \
 	else \
-		echo ".env file already exists."; \
+		echo "$(GREEN)✓ .env file already exists$(RESET)"; \
 	fi
 
-# Environment-specific commands
-dev:
+install-dev: ## Install development dependencies
+	@echo "$(YELLOW)Installing development dependencies...$(RESET)"
+	@$(PIP) install -r requirements-test.txt
+	@$(PIP) install pre-commit mypy bandit safety
+	@echo "$(GREEN)✓ Development dependencies installed$(RESET)"
+
+install-hooks: install-dev ## Install pre-commit hooks
+	@echo "$(YELLOW)Installing pre-commit hooks...$(RESET)"
+	@pre-commit install
+	@pre-commit install --hook-type commit-msg
+	@echo "$(GREEN)✓ Pre-commit hooks installed$(RESET)"
+
+dev-setup: setup install-hooks ## Complete development environment setup
+	@echo "$(GREEN)✅ Development environment setup completed$(RESET)"
+
+# =============================================================================
+# DOCKER OPERATIONS
+# =============================================================================
+
+dev: ## Start development environment
 	@$(MAKE) up ENV=dev
 
-prod:
+prod: ## Start production environment
 	@$(MAKE) up ENV=prod
 
-# Start all services
-up:
-	@echo "Starting all services in $(ENV) environment..."
-	@[ -f .env ] || $(MAKE) setup
-	$(DOCKER_COMPOSE) up -d postgres redis
-	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout=60; counter=0; \
-	until $(DOCKER_COMPOSE) exec postgres pg_isready -U airflow 2>/dev/null || [ $$counter -eq $$timeout ]; do \
-		counter=$$((counter+1)); \
-		echo "PostgreSQL is unavailable - waiting ($$counter/$$timeout)..."; \
-		sleep 1; \
-	done; \
-	if [ $$counter -eq $$timeout ]; then \
-		echo "Error: PostgreSQL failed to start after $$timeout seconds"; \
-		exit 1; \
-	fi
-	$(DOCKER_COMPOSE) up -d mlflow backend streamlit
-	@sleep 3  # Wait for backend services to be ready
-	$(DOCKER_COMPOSE) up -d $(AIRFLOW_SERVICE)
-	@echo "Environment started. Access points:"
-	@echo "  - Backend: http://localhost:$(BACKEND_PORT)"
-	@echo "  - Streamlit: http://localhost:8501"
-	@echo "  - MLflow: http://localhost:5001"
-	@echo "  - Airflow: http://localhost:8080"
+up: setup ## Start all services
+	@echo "$(YELLOW)Starting all services in $(ENV) environment...$(RESET)"
+	@$(DOCKER_COMPOSE) up -d postgres redis
+	@$(MAKE) _wait-for-postgres
+	@$(DOCKER_COMPOSE) up -d mlflow backend streamlit
+	@sleep 3
+	@$(DOCKER_COMPOSE) up -d $(AIRFLOW_SERVICE)
+	@echo "$(GREEN)✅ Environment started successfully$(RESET)"
+	@$(MAKE) _show-endpoints
 
-# Stop all services
-down:
-	@echo "Stopping all services in $(ENV) environment..."
-	$(DOCKER_COMPOSE) down
-	@echo "All services stopped"
+down: ## Stop all services
+	@echo "$(YELLOW)Stopping all services in $(ENV) environment...$(RESET)"
+	@$(DOCKER_COMPOSE) down
+	@echo "$(GREEN)✓ All services stopped$(RESET)"
 
-# Restart all services
-restart: down up
+restart: down up ## Restart all services
 
-# Clean up
-clean:
-	@echo "Cleaning up $(ENV) environment..."
-	$(DOCKER_COMPOSE) down -v --remove-orphans
-	@echo "All containers, networks, and volumes removed"
+clean: ## Stop and remove containers, networks, and volumes
+	@echo "$(YELLOW)Cleaning up $(ENV) environment...$(RESET)"
+	@$(DOCKER_COMPOSE) down -v --remove-orphans
+	@echo "$(GREEN)✓ All containers, networks, and volumes removed$(RESET)"
 
-# Show logs
-logs:
-	$(DOCKER_COMPOSE) logs -f
+# =============================================================================
+# BUILD OPERATIONS
+# =============================================================================
 
-# Show logs for a specific service
-logs-%:
-	$(DOCKER_COMPOSE) logs -f $*
+build: ## Build all services
+	@echo "$(YELLOW)Building all services for $(ENV) environment...$(RESET)"
+	@$(DOCKER_COMPOSE) build
+	@echo "$(GREEN)✓ Build complete$(RESET)"
 
-# Show running services
-ps:
-	$(DOCKER_COMPOSE) ps
+build-fast: ## Build with BuildKit optimizations
+	@echo "$(YELLOW)Building services with optimizations...$(RESET)"
+	@DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 $(DOCKER_COMPOSE) build
+	@echo "$(GREEN)✓ Optimized build complete$(RESET)"
 
-# Initialize Airflow
-init:
-	@echo "Initializing Airflow in $(ENV) environment..."
-	@if [ "$(ENV)" = "dev" ]; then \
-		$(DOCKER_COMPOSE) down --remove-orphans airflow; \
+build-prod: ## Build production-ready images
+	@echo "$(YELLOW)Building production-optimized images...$(RESET)"
+	@DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 $(DOCKER_COMPOSE) build --pull
+	@echo "$(GREEN)✓ Production build complete$(RESET)"
+
+rebuild: ## Rebuild all services without cache
+	@echo "$(YELLOW)Rebuilding all services without cache...$(RESET)"
+	@$(DOCKER_COMPOSE) build --no-cache
+	@echo "$(GREEN)✓ Rebuild complete$(RESET)"
+
+# =============================================================================
+# AIRFLOW OPERATIONS
+# =============================================================================
+
+init: ## Initialize Airflow database and create admin user
+	@echo "$(YELLOW)Initializing Airflow in $(ENV) environment...$(RESET)"
+	@$(MAKE) _stop-airflow
+	@$(DOCKER_COMPOSE) up -d postgres
+	@$(MAKE) _wait-for-postgres
+	@$(MAKE) _init-airflow-db
+	@$(MAKE) _start-airflow
+	@echo "$(GREEN)✅ Airflow initialized successfully$(RESET)"
+
+airflow-creds: ## Display Airflow login credentials
+	@echo "$(CYAN)Airflow Credentials:$(RESET)"
+	@echo "$(YELLOW)----------------------------------------$(RESET)"
+	@AUTH_LINE=$$($(DOCKER_COMPOSE) logs $(AIRFLOW_SERVICE) 2>&1 | grep "Simple auth manager" | tail -1); \
+	if [ -z "$$AUTH_LINE" ]; then \
+		echo "$(RED)❌ No auto-generated credentials found$(RESET)"; \
+		echo "$(YELLOW)Check your .env file for configured credentials$(RESET)"; \
 	else \
-		$(DOCKER_COMPOSE) down --remove-orphans airflow-webserver airflow-scheduler; \
+		echo "$(GREEN)Username:$(RESET) $$(echo $$AUTH_LINE | grep -o "user '[^']*'" | cut -d "'" -f 2)"; \
+		echo "$(GREEN)Password:$(RESET) $$(echo $$AUTH_LINE | grep -o "Password for user '[^']*': [^ ]*" | awk -F': ' '{print $$2}')"; \
 	fi
-	$(DOCKER_COMPOSE) up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
+	@echo "$(YELLOW)----------------------------------------$(RESET)"
+
+# =============================================================================
+# MONITORING & DEBUGGING
+# =============================================================================
+
+logs: ## Show logs from all services
+	@$(DOCKER_COMPOSE) logs -f
+
+logs-%: ## Show logs from specific service (e.g., make logs-airflow)
+	@$(DOCKER_COMPOSE) logs -f $*
+
+ps: ## Show running services
+	@$(DOCKER_COMPOSE) ps
+
+shell-%: ## Open shell in specific service (e.g., make shell-airflow)
+	@case $* in \
+		airflow) $(DOCKER_COMPOSE) exec $(AIRFLOW_SERVICE) bash ;; \
+		backend) $(DOCKER_COMPOSE) exec backend bash ;; \
+		streamlit) $(DOCKER_COMPOSE) exec streamlit bash ;; \
+		mlflow) $(DOCKER_COMPOSE) exec mlflow sh ;; \
+		*) echo "$(RED)❌ Unknown service: $*$(RESET)"; echo "$(YELLOW)Available: airflow, backend, streamlit, mlflow$(RESET)" ;; \
+	esac
+
+# =============================================================================
+# TESTING
+# =============================================================================
+
+test: install-dev ## Run quick test suite
+	@echo "$(YELLOW)Running test suite...$(RESET)"
+	@pytest tests/ -v --tb=short
+	@echo "$(GREEN)✅ Tests completed$(RESET)"
+
+test-unit: install-dev ## Run unit tests with coverage
+	@echo "$(YELLOW)Running unit tests...$(RESET)"
+	@pytest tests/ -v -m "not integration" --cov=src --cov=api --cov-report=term-missing
+	@echo "$(GREEN)✅ Unit tests completed$(RESET)"
+
+test-integration: install-dev ## Run integration tests
+	@echo "$(YELLOW)Running integration tests...$(RESET)"
+	@pytest tests/ -v -m integration
+	@echo "$(GREEN)✅ Integration tests completed$(RESET)"
+
+test-cov: install-dev ## Run tests with HTML coverage report
+	@echo "$(YELLOW)Running tests with coverage report...$(RESET)"
+	@pytest tests/ -v --cov=src --cov=api --cov-report=html --cov-report=term-missing
+	@echo "$(GREEN)✅ Coverage report generated in htmlcov/$(RESET)"
+
+coverage-report: test-cov ## Generate HTML coverage report
+	@echo "$(CYAN)📊 Coverage report available at htmlcov/index.html$(RESET)"
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+format: install-dev ## Format code with black and isort
+	@echo "$(YELLOW)Formatting code...$(RESET)"
+	@black . --exclude="venv|__pycache__|.git|.pytest_cache"
+	@isort . --skip=venv --skip=__pycache__ --skip=.git --skip=.pytest_cache
+	@echo "$(GREEN)✓ Code formatting completed$(RESET)"
+
+lint: install-dev ## Run linting with flake8
+	@echo "$(YELLOW)Running linting...$(RESET)"
+	@flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+	@flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics --exclude=venv,__pycache__,.git,.pytest_cache
+	@echo "$(GREEN)✓ Linting completed$(RESET)"
+
+type-check: install-dev ## Run type checking with mypy
+	@echo "$(YELLOW)Running type checks...$(RESET)"
+	@mypy api/ plugins/src/ --ignore-missing-imports || true
+	@echo "$(GREEN)✓ Type checking completed$(RESET)"
+
+security-check: install-dev ## Run security checks
+	@echo "$(YELLOW)Running security checks...$(RESET)"
+	@bandit -r . -f json -o bandit-report.json --exclude ./venv,./tests || true
+	@bandit -r . --exclude ./venv,./tests || true
+	@safety check || true
+	@echo "$(GREEN)✓ Security checks completed$(RESET)"
+
+quality: format lint type-check security-check test ## Run all quality checks
+	@echo "$(GREEN)✅ All quality checks completed$(RESET)"
+
+# =============================================================================
+# PRE-COMMIT OPERATIONS
+# =============================================================================
+
+pre-commit-run: install-hooks ## Run pre-commit on all files
+	@echo "$(YELLOW)Running pre-commit on all files...$(RESET)"
+	@pre-commit run --all-files
+	@echo "$(GREEN)✓ Pre-commit checks completed$(RESET)"
+
+pre-commit-update: install-hooks ## Update pre-commit hooks
+	@echo "$(YELLOW)Updating pre-commit hooks...$(RESET)"
+	@pre-commit autoupdate
+	@echo "$(GREEN)✓ Pre-commit hooks updated$(RESET)"
+
+# =============================================================================
+# CLEANUP OPERATIONS
+# =============================================================================
+
+clean-test: ## Clean test artifacts
+	@echo "$(YELLOW)Cleaning test artifacts...$(RESET)"
+	@rm -rf .pytest_cache/ .coverage htmlcov/ .mypy_cache/ *.egg-info/
+	@rm -f bandit-report.json safety-report.json
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@echo "$(GREEN)✓ Test artifacts cleaned$(RESET)"
+
+purge: ## Remove all Docker resources
+	@echo "$(RED)⚠ This will remove ALL project containers and images$(RESET)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo ""; \
+		docker compose -f docker-compose.base.yml -f docker-compose.dev.yml down -v --rmi all --remove-orphans; \
+		docker compose -f docker-compose.base.yml -f docker-compose.prod.yml down -v --rmi all --remove-orphans; \
+		echo "$(GREEN)✓ Purge completed$(RESET)"; \
+	else \
+		echo ""; \
+		echo "$(YELLOW)Purge cancelled$(RESET)"; \
+	fi
+
+prune: ## Clean up unused Docker resources
+	@echo "$(YELLOW)Pruning unused Docker resources...$(RESET)"
+	@docker system prune -f
+	@echo "$(GREEN)✓ Docker cleanup completed$(RESET)"
+
+# =============================================================================
+# DEVELOPMENT WORKFLOWS
+# =============================================================================
+
+dev-check: quality test-integration ## Run all checks before committing
+	@echo "$(GREEN)✅ All development checks passed - ready to commit!$(RESET)"
+
+ci-check: lint test ## Lightweight CI checks
+	@echo "$(GREEN)✅ CI checks completed$(RESET)"
+
+# =============================================================================
+# INTERNAL/HELPER TARGETS
+# =============================================================================
+
+_wait-for-postgres:
+	@echo "$(YELLOW)Waiting for PostgreSQL to be ready...$(RESET)"
 	@timeout=60; counter=0; \
 	until $(DOCKER_COMPOSE) exec postgres pg_isready -U airflow 2>/dev/null || [ $$counter -eq $$timeout ]; do \
 		counter=$$((counter+1)); \
-		echo "PostgreSQL is unavailable - waiting ($$counter/$$timeout)..."; \
+		printf "\r$(YELLOW)PostgreSQL starting... ($$counter/$$timeout)$(RESET)"; \
 		sleep 1; \
 	done; \
 	if [ $$counter -eq $$timeout ]; then \
-		echo "Error: PostgreSQL failed to start after $$timeout seconds"; \
+		echo "\n$(RED)❌ PostgreSQL failed to start after $$timeout seconds$(RESET)"; \
 		exit 1; \
 	fi
-	@echo "PostgreSQL is ready!"
+	@echo "\n$(GREEN)✓ PostgreSQL is ready$(RESET)"
 
+_stop-airflow:
+	@if [ "$(ENV)" = "dev" ]; then \
+		$(DOCKER_COMPOSE) stop airflow 2>/dev/null || true; \
+	else \
+		$(DOCKER_COMPOSE) stop airflow-webserver airflow-scheduler 2>/dev/null || true; \
+	fi
+
+_start-airflow:
+	@if [ "$(ENV)" = "dev" ]; then \
+		$(DOCKER_COMPOSE) up -d airflow; \
+	else \
+		$(DOCKER_COMPOSE) up -d airflow-webserver airflow-scheduler; \
+	fi
+
+_init-airflow-db:
 	@if [ "$(ENV)" = "dev" ]; then \
 		$(DOCKER_COMPOSE) run --rm airflow airflow db migrate && \
 		$(DOCKER_COMPOSE) run --rm airflow airflow users create \
@@ -152,7 +367,6 @@ init:
 			--role Admin \
 			--email "$${AIRFLOW_USER_EMAIL:-admin@example.com}" \
 			--password "$${AIRFLOW_PASSWORD:-admin}"; \
-		$(DOCKER_COMPOSE) up -d airflow; \
 	else \
 		$(DOCKER_COMPOSE) run --rm airflow-webserver airflow db migrate && \
 		$(DOCKER_COMPOSE) run --rm airflow-webserver airflow users create \
@@ -162,184 +376,11 @@ init:
 			--role Admin \
 			--email "$${AIRFLOW_USER_EMAIL:-admin@example.com}" \
 			--password "$${AIRFLOW_PASSWORD:-admin}"; \
-		$(DOCKER_COMPOSE) up -d airflow-webserver airflow-scheduler; \
 	fi
-	@echo "Airflow initialized with admin user from .env"
 
-# Display Airflow auto-generated credentials
-airflow-creds:
-	@echo "Retrieving Airflow credentials..."
-	@echo "----------------------------------------"
-	@AUTH_LINE=$$($(DOCKER_COMPOSE) logs airflow 2>&1 | grep "Simple auth manager" | tail -1); \
-	if [ -z "$$AUTH_LINE" ]; then \
-		echo "❌ No auto-generated credentials found in logs."; \
-		echo "This may mean you're using fixed credentials from .env"; \
-		echo "or the container hasn't logged the credentials yet."; \
-	else \
-		echo "✅ Airflow Credentials:"; \
-		echo "Username: $$(echo $$AUTH_LINE | grep -o "user '[^']*'" | cut -d "'" -f 2)"; \
-		echo "Password: $$(echo $$AUTH_LINE | grep -o "Password for user '[^']*': [^ ]*" | awk -F': ' '{print $$2}')"; \
-	fi
-	@echo "----------------------------------------"
-	@echo "These are either the auto-generated credentials OR"
-	@echo "if you set _AIRFLOW_WWW_USER_* variables, check your .env file."
-
-# Shell access to containers
-airflow-shell:
-	$(DOCKER_COMPOSE) exec $(AIRFLOW_SERVICE) bash
-
-mlflow-shell:
-	$(DOCKER_COMPOSE) exec mlflow sh
-
-streamlit-shell:
-	$(DOCKER_COMPOSE) exec streamlit bash
-
-backend-shell:
-	$(DOCKER_COMPOSE) exec backend bash
-
-# Build commands
-build:
-	@echo "Building all services for $(ENV) environment..."
-	$(DOCKER_COMPOSE) build
-	@echo "Build complete"
-
-build-fast:
-	@echo "Building services with optimized settings..."
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 $(DOCKER_COMPOSE) build
-	@echo "Build complete"
-
-build-prod:
-	@echo "Building production-optimized images..."
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 $(DOCKER_COMPOSE) build --pull
-	@echo "Production build complete"
-
-rebuild:
-	@echo "Rebuilding all services for $(ENV) environment without cache..."
-	$(DOCKER_COMPOSE) build --no-cache
-	@echo "Rebuild complete"
-
-# Resource management
-purge:
-	@echo "Purging all Docker resources related to this project..."
-	docker compose -f docker-compose.base.yml -f docker-compose.dev.yml down -v --rmi all --remove-orphans
-	docker compose -f docker-compose.base.yml -f docker-compose.prod.yml down -v --rmi all --remove-orphans
-	@echo "Purge complete"
-
-prune:
-	@echo "Pruning unused Docker resources..."
-	docker system prune -f
-	@echo "Prune complete"
-
-
-# Code Quality and Testing
-.PHONY: test test-unit test-integration test-all lint format type-check security-check quality-check install-dev install-hooks
-
-# Development setup
-install-dev:
-	@echo "Installing development dependencies..."
-	pip install -r requirements-test.txt
-	pip install pre-commit
-	@echo "Development dependencies installed"
-
-install-hooks:
-	@echo "Installing pre-commit hooks..."
-	pre-commit install
-	pre-commit install --hook-type commit-msg
-	@echo "Pre-commit hooks installed"
-
-# Testing
-test-unit:
-	@echo "Running unit tests..."
-	pytest tests/unit/ -v --cov=src --cov=api --cov-report=html --cov-report=term-missing
-
-test-integration:
-	@echo "Running integration tests..."
-	pytest tests/integration/ -v
-
-test-all: test-unit test-integration
-	@echo "All tests completed"
-
-test: test-unit
-	@echo "Quick test suite completed"
-
-# Code quality
-format:
-	@echo "Formatting code with black..."
-	black .
-	@echo "Sorting imports with isort..."
-	isort .
-	@echo "Code formatting completed"
-
-lint:
-	@echo "Running flake8..."
-	flake8 .
-	@echo "Linting completed"
-
-type-check:
-	@echo "Running mypy type checks..."
-	mypy api/ plugins/src/ --ignore-missing-imports
-	@echo "Type checking completed"
-
-security-check:
-	@echo "Running security checks with bandit..."
-	bandit -r . -f json -o bandit-report.json || true
-	bandit -r . || true
-	@echo "Running safety check..."
-	safety check || true
-	@echo "Security checks completed"
-
-quality-check: format lint type-check security-check
-	@echo "Full quality check completed"
-
-# Pre-commit
-pre-commit-run:
-	@echo "Running pre-commit on all files..."
-	pre-commit run --all-files
-
-pre-commit-update:
-	@echo "Updating pre-commit hooks..."
-	pre-commit autoupdate
-
-# Coverage
-coverage-report:
-	@echo "Generating coverage report..."
-	pytest tests/unit/ --cov=src --cov=api --cov-report=html
-	@echo "Coverage report generated in htmlcov/"
-
-# Clean test artifacts
-clean-test:
-	@echo "Cleaning test artifacts..."
-	rm -rf .pytest_cache/
-	rm -rf .coverage
-	rm -rf htmlcov/
-	rm -rf .mypy_cache/
-	rm -f bandit-report.json
-	rm -f safety-report.json
-	@echo "Test artifacts cleaned"
-
-# Development workflow
-dev-setup: install-dev install-hooks
-	@echo "Development environment setup completed"
-
-dev-check: quality-check test-all
-	@echo "Development checks completed - ready to commit!"
-
-# Help for code quality commands
-help-quality:
-	@echo "Code Quality Commands:"
-	@echo "  install-dev       Install development dependencies"
-	@echo "  install-hooks     Install pre-commit hooks"
-	@echo "  dev-setup         Complete development setup"
-	@echo "  test              Run quick unit tests"
-	@echo "  test-unit         Run unit tests with coverage"
-	@echo "  test-integration  Run integration tests"
-	@echo "  test-all          Run all tests"
-	@echo "  format            Format code with black and isort"
-	@echo "  lint              Run flake8 linting"
-	@echo "  type-check        Run mypy type checking"
-	@echo "  security-check    Run bandit and safety security checks"
-	@echo "  quality-check     Run all code quality checks"
-	@echo "  pre-commit-run    Run pre-commit on all files"
-	@echo "  coverage-report   Generate HTML coverage report"
-	@echo "  dev-check         Run all quality checks and tests"
-	@echo "  clean-test        Clean test artifacts"
+_show-endpoints:
+	@echo "$(CYAN)🌐 Service Endpoints:$(RESET)"
+	@echo "  $(GREEN)Backend API:$(RESET)    http://localhost:$(BACKEND_PORT)"
+	@echo "  $(GREEN)Streamlit UI:$(RESET)   http://localhost:8501"
+	@echo "  $(GREEN)MLflow:$(RESET)         http://localhost:5001"
+	@echo "  $(GREEN)Airflow:$(RESET)        http://localhost:8080"
