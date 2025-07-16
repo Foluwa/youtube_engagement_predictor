@@ -13,8 +13,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy only necessary files, not the entire context
 COPY api/ ./api/
-COPY src/ ./src/
+COPY plugins/src/ ./src/
 COPY streamlit_app.py ./
+
+# Create models directory
+RUN mkdir -p models
 
 # Expose port and set entrypoint
 EXPOSE 80

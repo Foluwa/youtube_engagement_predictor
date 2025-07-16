@@ -17,11 +17,7 @@ RUN pip install --no-cache-dir streamlit
 COPY streamlit-requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Or install specific packages directly
-# RUN pip install --no-cache-dir pandas numpy plotly
-
-# Copy only what's needed for Streamlit
-COPY src/ ./src/
+COPY plugins/src/ ./src/
 COPY streamlit_app.py ./streamlit_app.py
 
 EXPOSE 8501
