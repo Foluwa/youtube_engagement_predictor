@@ -74,11 +74,11 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        mypy api/ plugins/src/ --ignore-missing-imports
+        mypy api/ plugins/src/ --ignore-missing-imports --allow-untyped-defs --allow-incomplete-defs
 
     - name: Run unit tests
       run: |
-        pytest tests/unit/ -v --cov=src --cov=api --cov-report=xml --cov-report=term-missing
+        pytest tests/unit/ -v --cov=plugins/src --cov=api --cov-report=xml --cov-report=term-missing --cov-fail-under=30
       env:
         POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379

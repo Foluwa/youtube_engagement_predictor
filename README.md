@@ -13,6 +13,13 @@ YouTube content creators and marketing teams face a critical challenge: predicti
 
 This project solves these challenges by predicting the **like-to-view ratio** of YouTube videos based on metadata available at upload time, enabling data-driven content decisions.
 
+## Dataset
+
+Download and unzip into the `data` directory or run the `scripts/download_data.py` script
+
+Source: [Kaggle](https://www.kaggle.com/datasets/datasnaek/youtube-new)
+
+
 ## Architecture Overview
 
 ```
