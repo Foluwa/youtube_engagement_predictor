@@ -1,15 +1,17 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import os
 import pathlib
+
 import joblib
 import pandas as pd
-import numpy as np
-import os
+from fastapi import FastAPI, HTTPException
 from googleapiclient.discovery import build
+from pydantic import BaseModel
 from youtube_transcript_api import YouTubeTranscriptApi
 
 # Load model
-MODEL_PATH = os.getenv("MODEL_PATH", str(pathlib.Path(__file__).parents[1] / "models" / "model.pkl"))
+MODEL_PATH = os.getenv(
+    "MODEL_PATH", str(pathlib.Path(__file__).parents[1] / "models" / "model.pkl")
+)
 model = joblib.load(MODEL_PATH)
 
 # YouTube API setup
@@ -19,24 +21,62 @@ if YT_API_KEY:
 else:
     yt = None
 
-# Category mapping 
-category_map = {'1': 'Film & Animation', '2': 'Autos & Vehicles', '10': 'Music', '15': 'Pets & Animals', '17': 'Sports', '18': 'Short Movies', '19': 'Travel & Events', '20': 'Gaming', '21': 'Videoblogging', '22': 'People & Blogs', '23': 'Comedy', '24': 'Entertainment', '25': 'News & Politics', '26': 'Howto & Style', '27': 'Education', '28': 'Science & Technology', '30': 'Movies', '31': 'Anime/Animation', '32': 'Action/Adventure', '33': 'Classics', '34': 'Comedy', '35': 'Documentary', '36': 'Drama', '37': 'Family', '38': 'Foreign', '39': 'Horror', '40': 'Sci-Fi/Fantasy', '41': 'Thriller', '42': 'Shorts', '43': 'Shows', '44': 'Trailers', '29': 'Nonprofits & Activism'}
+# Category mapping
+category_map = {
+    "1": "Film & Animation",
+    "2": "Autos & Vehicles",
+    "10": "Music",
+    "15": "Pets & Animals",
+    "17": "Sports",
+    "18": "Short Movies",
+    "19": "Travel & Events",
+    "20": "Gaming",
+    "21": "Videoblogging",
+    "22": "People & Blogs",
+    "23": "Comedy",
+    "24": "Entertainment",
+    "25": "News & Politics",
+    "26": "Howto & Style",
+    "27": "Education",
+    "28": "Science & Technology",
+    "30": "Movies",
+    "31": "Anime/Animation",
+    "32": "Action/Adventure",
+    "33": "Classics",
+    "34": "Comedy",
+    "35": "Documentary",
+    "36": "Drama",
+    "37": "Family",
+    "38": "Foreign",
+    "39": "Horror",
+    "40": "Sci-Fi/Fantasy",
+    "41": "Thriller",
+    "42": "Shorts",
+    "43": "Shows",
+    "44": "Trailers",
+    "29": "Nonprofits & Activism",
+}
+
 
 # Schema
 class VideoMeta(BaseModel):
     title: str
     tags: list[str]
-    publish_time: str  
+    publish_time: str
     category_name: str
+
 
 class VideoID(BaseModel):
     video_id: str
 
+
 app = FastAPI(title="YouTube Engagement Predictor")
+
 
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "model_loaded": model is not None}
+
 
 @app.post("/predict")
 def predict(meta: VideoMeta):
@@ -69,14 +109,19 @@ def predict(meta: VideoMeta):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
+
 @app.post("/fetch-and-predict")
 def fetch_and_predict(data: VideoID):
     if not yt:
         raise HTTPException(status_code=500, detail="YouTube API not configured")
-    
+
     try:
         # Fetch metadata
-        resp = yt.videos().list(part="snippet,statistics,contentDetails", id=data.video_id).execute()
+        resp = (
+            yt.videos()
+            .list(part="snippet,statistics,contentDetails", id=data.video_id)
+            .execute()
+        )
         items = resp.get("items")
         if not items:
             raise HTTPException(status_code=404, detail="Video not found")
@@ -90,23 +135,27 @@ def fetch_and_predict(data: VideoID):
             "title": snip["title"],
             "tags": snip.get("tags", []),
             "publish_time": snip["publishedAt"],
-            "category_name": category_map.get(snip["categoryId"], "Unknown")
+            "category_name": category_map.get(snip["categoryId"], "Unknown"),
         }
 
         # Local predict reuse
-        df = pd.DataFrame([{
-            "title_len": len(payload["title"]),
-            "tag_count": len(payload["tags"]),
-            "hour": pd.to_datetime(payload["publish_time"]).hour,
-            "weekday": pd.to_datetime(payload["publish_time"]).weekday()
-        }])
-        
+        df = pd.DataFrame(
+            [
+                {
+                    "title_len": len(payload["title"]),
+                    "tag_count": len(payload["tags"]),
+                    "hour": pd.to_datetime(payload["publish_time"]).hour,
+                    "weekday": pd.to_datetime(payload["publish_time"]).weekday(),
+                }
+            ]
+        )
+
         # Add category features
         for feat in model.booster_.feature_name():
             if feat.startswith("category_name_"):
                 cat = feat.replace("category_name_", "")
                 df[feat] = int(payload["category_name"] == cat)
-        
+
         pred = model.predict(df)[0]
 
         # Actual like percent
@@ -119,7 +168,7 @@ def fetch_and_predict(data: VideoID):
         try:
             transcript = YouTubeTranscriptApi.get_transcript(data.video_id)
         except Exception:
-            pass  
+            pass
 
         # Thumbnail
         thumb_url = snip.get("thumbnails", {}).get("medium", {}).get("url", "")
@@ -133,14 +182,16 @@ def fetch_and_predict(data: VideoID):
             "stats": {
                 "view_count": view_count,
                 "like_count": like_count,
-                "comment_count": int(stats.get("commentCount", 0))
-            }
+                "comment_count": int(stats.get("commentCount", 0)),
+            },
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing video: {str(e)}")
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

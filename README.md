@@ -385,4 +385,4 @@ python -c "from src.train import train_model; train_model('data/processed.csv', 
 
 **Built with ❤️ for the MLOps community**
 
-*For questions or support, please open an issue or contact [moronfoluwaakintola@gmail.com]*
+*For questions or support, please open an issue or contact [email](moronfoluwaakintola@gmail.com)*

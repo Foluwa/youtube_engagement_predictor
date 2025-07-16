@@ -1,0 +1,36 @@
+[flake8]
+max-line-length = 88
+; extend-ignore = 
+;     # E203: whitespace before ':' (conflicts with black)
+;     E203,
+;     # W503: line break before binary operator (conflicts with black)
+;     W503,
+;     # E501: line too long (handled by black)
+;     E501
+per-file-ignores =
+    # Tests can have longer lines and unused imports
+    tests/*: #E501,F401,F811
+    # __init__.py files can have unused imports
+    __init__.py:F401
+    # Airflow DAGs can have unused imports for plugin discovery
+    dags/*:F401
+    # Disable type checking for src files
+    plugins/src/*:F811
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    venv,
+    env,
+    ENV,
+    .venv,
+    data,
+    logs,
+    mlruns,
+    build,
+    dist,
+    *.egg-info
+; max-complexity = 10
+; import-order-style = google
+; docstring-convention = google

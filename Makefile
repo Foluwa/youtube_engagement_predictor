@@ -229,3 +229,117 @@ prune:
 	@echo "Pruning unused Docker resources..."
 	docker system prune -f
 	@echo "Prune complete"
+
+
+# Code Quality and Testing
+.PHONY: test test-unit test-integration test-all lint format type-check security-check quality-check install-dev install-hooks
+
+# Development setup
+install-dev:
+	@echo "Installing development dependencies..."
+	pip install -r requirements-test.txt
+	pip install pre-commit
+	@echo "Development dependencies installed"
+
+install-hooks:
+	@echo "Installing pre-commit hooks..."
+	pre-commit install
+	pre-commit install --hook-type commit-msg
+	@echo "Pre-commit hooks installed"
+
+# Testing
+test-unit:
+	@echo "Running unit tests..."
+	pytest tests/unit/ -v --cov=src --cov=api --cov-report=html --cov-report=term-missing
+
+test-integration:
+	@echo "Running integration tests..."
+	pytest tests/integration/ -v
+
+test-all: test-unit test-integration
+	@echo "All tests completed"
+
+test: test-unit
+	@echo "Quick test suite completed"
+
+# Code quality
+format:
+	@echo "Formatting code with black..."
+	black .
+	@echo "Sorting imports with isort..."
+	isort .
+	@echo "Code formatting completed"
+
+lint:
+	@echo "Running flake8..."
+	flake8 .
+	@echo "Linting completed"
+
+type-check:
+	@echo "Running mypy type checks..."
+	mypy api/ plugins/src/ --ignore-missing-imports
+	@echo "Type checking completed"
+
+security-check:
+	@echo "Running security checks with bandit..."
+	bandit -r . -f json -o bandit-report.json || true
+	bandit -r . || true
+	@echo "Running safety check..."
+	safety check || true
+	@echo "Security checks completed"
+
+quality-check: format lint type-check security-check
+	@echo "Full quality check completed"
+
+# Pre-commit
+pre-commit-run:
+	@echo "Running pre-commit on all files..."
+	pre-commit run --all-files
+
+pre-commit-update:
+	@echo "Updating pre-commit hooks..."
+	pre-commit autoupdate
+
+# Coverage
+coverage-report:
+	@echo "Generating coverage report..."
+	pytest tests/unit/ --cov=src --cov=api --cov-report=html
+	@echo "Coverage report generated in htmlcov/"
+
+# Clean test artifacts
+clean-test:
+	@echo "Cleaning test artifacts..."
+	rm -rf .pytest_cache/
+	rm -rf .coverage
+	rm -rf htmlcov/
+	rm -rf .mypy_cache/
+	rm -f bandit-report.json
+	rm -f safety-report.json
+	@echo "Test artifacts cleaned"
+
+# Development workflow
+dev-setup: install-dev install-hooks
+	@echo "Development environment setup completed"
+
+dev-check: quality-check test-all
+	@echo "Development checks completed - ready to commit!"
+
+# Help for code quality commands
+help-quality:
+	@echo "Code Quality Commands:"
+	@echo "  install-dev       Install development dependencies"
+	@echo "  install-hooks     Install pre-commit hooks"
+	@echo "  dev-setup         Complete development setup"
+	@echo "  test              Run quick unit tests"
+	@echo "  test-unit         Run unit tests with coverage"
+	@echo "  test-integration  Run integration tests"
+	@echo "  test-all          Run all tests"
+	@echo "  format            Format code with black and isort"
+	@echo "  lint              Run flake8 linting"
+	@echo "  type-check        Run mypy type checking"
+	@echo "  security-check    Run bandit and safety security checks"
+	@echo "  quality-check     Run all code quality checks"
+	@echo "  pre-commit-run    Run pre-commit on all files"
+	@echo "  coverage-report   Generate HTML coverage report"
+	@echo "  dev-check         Run all quality checks and tests"
+	@echo "  clean-test        Clean test artifacts"

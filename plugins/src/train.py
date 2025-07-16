@@ -1,14 +1,16 @@
-import pandas as pd
-import lightgbm as lgb
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import root_mean_squared_error
-import joblib
-import mlflow
 import os
+
+import joblib
+import lightgbm as lgb
+import mlflow
+import pandas as pd
+from sklearn.metrics import root_mean_squared_error
+from sklearn.model_selection import train_test_split
+
 
 def train_model(data_path="./data/processed.csv", model_dir="models"):
     os.makedirs(model_dir, exist_ok=True)
-    
+
     df = pd.read_csv(data_path)
     # Select features
     features = ["title_len", "tag_count", "hour", "weekday"]
@@ -38,11 +40,11 @@ def train_model(data_path="./data/processed.csv", model_dir="models"):
 
         model = lgb.LGBMRegressor(**params)
         model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             eval_set=[(X_val, y_val)],
             callbacks=[lgb.early_stopping(stopping_rounds=10)],
         )
-
 
         preds = model.predict(X_val)
         rmse = root_mean_squared_error(y_val, preds)
@@ -54,6 +56,7 @@ def train_model(data_path="./data/processed.csv", model_dir="models"):
         mlflow.log_artifact(model_path)
 
         print(f"Validation RMSE: {rmse:.5f}")
+
 
 if __name__ == "__main__":
     train_model()
